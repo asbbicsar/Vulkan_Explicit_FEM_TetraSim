@@ -101,6 +101,11 @@ struct RenderVertex {
     glm::vec4 color;
 };
 
+struct Force {
+    glm::vec3 force;
+    float stress;
+};
+
 struct alignas(16) Tetrahedron {
     uint32_t indices[4];
     float invDm[9];  // 3x3 역행렬 (1차원 배열로 패킹)
@@ -938,7 +943,7 @@ private:
     }
 
     void createRenderDescriptorSetLayout() {
-        std::array<VkDescriptorSetLayoutBinding, 3> layoutBindings{};
+        std::array<VkDescriptorSetLayoutBinding, 4> layoutBindings{};
         layoutBindings[0].binding = 0;
         layoutBindings[0].descriptorCount = 1;
         layoutBindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -957,9 +962,15 @@ private:
         layoutBindings[2].pImmutableSamplers = nullptr;
         layoutBindings[2].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
+        layoutBindings[3].binding = 3;
+        layoutBindings[3].descriptorCount = 1;
+        layoutBindings[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        layoutBindings[3].pImmutableSamplers = nullptr;
+        layoutBindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
         VkDescriptorSetLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layoutInfo.bindingCount = 3;
+        layoutInfo.bindingCount = 4;
         layoutInfo.pBindings = layoutBindings.data();
 
         if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout) != VK_SUCCESS) {
@@ -1289,7 +1300,7 @@ private:
     }
 
     void createForceBuffer() {
-        VkDeviceSize bufferSize = sizeof(glm::vec4) * physicsVerts.size();
+        VkDeviceSize bufferSize = sizeof(Force) * physicsVerts.size();
 
         createBuffer(
             bufferSize,
@@ -1340,7 +1351,7 @@ private:
         poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
         poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 2) + 1;
+        poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT * 3) + 4;
 
         VkDescriptorPoolCreateInfo poolInfo{};
         poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1383,7 +1394,12 @@ private:
             renderInfo.offset = 0;
             renderInfo.range = sizeof(RenderVertex) * renderVerts.size();
 
-            std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
+            VkDescriptorBufferInfo forceInfo{};
+            forceInfo.buffer = forceBuffer;
+            forceInfo.offset = 0;
+            forceInfo.range = sizeof(Force) * physicsVerts.size();
+
+            std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
             descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
             descriptorWrites[0].dstSet = descriptorSets[i];
             descriptorWrites[0].dstBinding = 0;
@@ -1407,6 +1423,14 @@ private:
             descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
             descriptorWrites[2].descriptorCount = 1;
             descriptorWrites[2].pBufferInfo = &renderInfo;
+
+            descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrites[3].dstSet = descriptorSets[i];
+            descriptorWrites[3].dstBinding = 3;
+            descriptorWrites[3].dstArrayElement = 0;
+            descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+            descriptorWrites[3].descriptorCount = 1;
+            descriptorWrites[3].pBufferInfo = &forceInfo;
 
             vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
         }

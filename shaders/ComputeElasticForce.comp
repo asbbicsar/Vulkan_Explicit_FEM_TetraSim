@@ -23,7 +23,7 @@ struct Tetrahedron {
 
 struct Force {
     vec3 force;
-    float padding;
+    float stress;
 };
 
 // ==========================================
@@ -110,8 +110,15 @@ void main() {
     vec3 f3 = H[2];
     vec3 f0 = -(f1 + f2 + f3); // 작용-반작용의 법칙 (총합은 0)
 
+    float stress = sqrt(dot(P[0], P[0]) + dot(P[1], P[1]) + dot(P[2], P[2]));
+    
     forces[i0].force += f0;
     forces[i1].force += f1;
     forces[i2].force += f2;
     forces[i3].force += f3;
+    
+    forces[i0].stress = stress;
+    forces[i1].stress = stress;
+    forces[i2].stress = stress;
+    forces[i3].stress = stress;
 }
