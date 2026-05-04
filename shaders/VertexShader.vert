@@ -39,9 +39,6 @@ layout(push_constant) uniform PushConstants {
 
 layout(location = 0) out vec3 fragColor;
 
-
-
-
 vec3 getHeatmapColor(float value) {
     value = clamp(value, 0.0, 1.0);
     vec3 blue  = vec3(0.0, 0.0, 1.0);
